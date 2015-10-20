@@ -152,8 +152,8 @@ void initParticles(void)
  //        list of particles.
  ***************************************************************/
  for (int i = 0; i < n_particles; i++) {
-  particle *temp;
-  temp = (particle*)malloc(sizeof(particle));
+  struct particle *temp;
+  temp = (struct particle*)malloc(sizeof(struct particle));
   do {
    temp->x = rand() % sx;
    temp->y = rand() % sy;
@@ -206,7 +206,7 @@ void computeLikelihood(struct particle *p, struct particle *rob, double noise_si
    p->prob += error;
 
  }
- p->prob /= 16; 
+ p->prob /= 16;
  p->prob = GaussEval(p->prob, noise_sigma); 
 
  
@@ -256,7 +256,7 @@ void ParticleFilterLoop(void)
     move(robot, 2);
    }
 
-   particle *temp1 = list;
+   struct particle *temp1 = list;
 
    while(temp1!=NULL) {
     move(temp1, 1);
@@ -277,14 +277,14 @@ void ParticleFilterLoop(void)
    //          each particle. Once you have a likelihood for every
    //          particle, turn it into a probability by ensuring that
    //          the sum of the likelihoods for all particles is 1.
-   particle *p = list;
-   particle *pp;
+   struct particle *p = list;
+   struct particle *pp;
    double totalProb;
    double value = 0.2;
    int i = 0;
    while (p != NULL) {	
       ground_truth(p, map, sx, sy);
-      
+
       computeLikelihood(p, robot, 20.00);
       printf("p: %i and %f and %f and %f\n", i,p->x,p->y, p->prob);
       totalProb += p->prob;
@@ -296,11 +296,11 @@ void ParticleFilterLoop(void)
 
    while (p != NULL) {
        p->prob /= totalProb;
-       
+
        printf("Ap:  and %f and %f and %f\n",p->x,p->y, p->prob);
        p = p->next;
    }
-    
+
    totalProb = 0.00;
    printf("TOTAL: %f\n", totalProb);
 
