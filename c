@@ -160,12 +160,40 @@ void initParticles(void)
   } while (hit(temp, map, sx, sy));
   temp->theta = 1 + rand() % (4);
   temp->theta = temp->theta * 3;
-  temp->prob = 1.0 / n_particles;
+  temp->prob = 1.00000 / n_particles;
   temp->next = list;
   list = temp;
  }
 
 
+}
+double randn (double mu, double sigma)
+{
+  double U1, U2, W, mult;
+  static double X1, X2;
+  static int call = 0;
+
+  if (call == 1)
+    {
+      call = !call;
+      return (mu + sigma * (double) X2);
+    }
+
+  do
+    {
+      U1 = -1 + ((double) rand () / RAND_MAX) * 2;
+      U2 = -1 + ((double) rand () / RAND_MAX) * 2;
+      W = pow (U1, 2) + pow (U2, 2);
+    }
+  while (W >= 1 || W == 0);
+
+  mult = sqrt ((-2 * log (W)) / W);
+  X1 = U1 * mult;
+  X2 = U2 * mult;
+
+  call = !call;
+
+  return (mu + sigma * (double) X1);
 }
 
 void computeLikelihood(struct particle *p, struct particle *rob, double noise_sigma)
@@ -205,19 +233,21 @@ void computeLikelihood(struct particle *p, struct particle *rob, double noise_si
  double lp = -1.0;
  double hp = 1.0;
  initProb = p->prob;
+ double sum;
  for (int i = 0; i< 16; i++) {
    error = p->measureD[i] - rob->measureD[i];
    if (lp > error)
 	lp = error;
    if (hp < error)
         hp = error;
-
-    p->prob = error * GaussEval(0, 20);
-    //printf("P %f\n", p->prob);
+    //printf("error %f\n", error);
+    p->prob = initProb + randn(fabs(hp), fabs(lp));
+    //printf("p %f\n", fabs(p->prob));
+    sum += fabs(p->prob);
  }
- 
- //p->prob = fabs(p->prob);
-printf("Ap:  and %f and %f and %f\n",p->x,p->y, fabs(p->prob));
+
+p->prob = sum;
+//printf("Ap:  and %f and %f and %f\n",p->x,p->y, p->prob);
  //exit(1);
 
  
@@ -290,7 +320,8 @@ void ParticleFilterLoop(void)
    //          each particle. Once you have a likelihood for every
    //          particle, turn it into a probability by ensuring that
    //          the sum of the likelihoods for all particles is 1.
-   struct particle *p = list;
+   struct particle *p;
+   p = list;
    struct particle *pp;
    double totalProb;
    double value = 0.2;
@@ -304,14 +335,14 @@ void ParticleFilterLoop(void)
    }
   
    p = list;
-   
+   //printf("TTToalp: %f\n", totalProb);
    while (p != NULL) {
        //printf("p:  and %f and %f and %f\n",p->x,p->y, p->prob);
        p->prob /= totalProb;
        //printf("Ap:  and %f and %f and %f\n",p->x,p->y, p->prob);
        p = p->next;
    }
-    
+   //exit(1); 
    totalProb = 0.00;
    //printf("TOTAL: %f\n", totalProb);
    
