@@ -153,13 +153,13 @@ void initParticles(void)
  ***************************************************************/
  for (int i = 0; i < n_particles; i++) {
   struct particle *temp;
-  temp = (struct particle*)malloc(sizeof(struct particle));
+  temp = (particle*)malloc(sizeof(particle));
   do {
    temp->x = rand() % sx;
    temp->y = rand() % sy;
   } while (hit(temp, map, sx, sy));
-  temp->theta = 1 + rand() % (4);
-  temp->theta = temp->theta * 3;
+  temp->theta = rand() % 12;
+  //temp->theta = temp->theta * 3;
   temp->prob = 1.00000 / n_particles;
   temp->next = list;
   list = temp;
@@ -229,27 +229,18 @@ void computeLikelihood(struct particle *p, struct particle *rob, double noise_si
  //        likelihood given the robot's measurements
  ****************************************************************/
  double error;
- double initProb;
- double lp = -1.0;
- double hp = 1.0;
- initProb = p->prob;
- double sum;
+ double sum = 1.0;
+
  for (int i = 0; i< 16; i++) {
-   error = p->measureD[i] - rob->measureD[i];
-   if (lp > error)
-	lp = error;
-   if (hp < error)
-        hp = error;
-    //printf("error %f\n", error);
-    p->prob = initProb * randn(fabs(hp), fabs(lp));
-    //printf("p %f\n", fabs(p->prob));
-    sum += fabs(p->prob);
+    error = p->measureD[i] - rob->measureD[i];
+    //printf("ERROR: %f\n", error); 
+    //printf("GaussEval: %f\n", GaussEval(error, 20));
+    sum *= GaussEval(error, 20);
  }
 
 p->prob = sum;
-//printf("Ap:  and %f and %f and %f\n",p->x,p->y, p->prob);
- //exit(1);
-
+//printf("p->prob: %f\n", p->prob);
+//exit(1);
  
 }
 
@@ -294,18 +285,18 @@ void ParticleFilterLoop(void)
    move(robot, 1);
    while (hit(robot, map, sx, sy)) {
     move(robot, -2);
-    robot->theta += 3;
+    robot->theta += 6;
     move(robot, 2);
    }
 
-   struct particle *temp1 = list;
+   particle *temp1 = list;
 
    while(temp1!=NULL) {
     move(temp1, 1);
     ground_truth(temp1, map, sx, sy);
     while (hit(temp1, map, sx, sy)) {
      move(temp1, -2);
-     temp1->theta += 3;
+     temp1->theta += 6;
      move(temp1, 2);
     }
     temp1 = temp1->next;
@@ -339,14 +330,13 @@ void ParticleFilterLoop(void)
    while (p != NULL) {
        //printf("p:  and %f and %f and %f\n",p->x,p->y, p->prob);
        p->prob /= totalProb;
-       //printf("Ap:  and %f and %f and %f\n",p->x,p->y, p->prob);
+       printf("Ap:  and %f and %f and %f\n",p->x,p->y, p->prob);
        p = p->next;
    }
-   //exit(1);
+ 
    totalProb = 0.00;
-   //printf("TOTAL: %f\n", totalProb);
 
-  
+   
   
    /*******************************************************************
    // TO DO: Complete Step 3 and test it
@@ -380,111 +370,95 @@ void ParticleFilterLoop(void)
    //                      before you lose that pointer!
    //
    //printf("Ap:  and %f and %f and %f\n",list->x,list->y, list->prob);
+
+    int n = n_particles;
+struct particle *head;
+double probList[4][n];
+double wn[n];
+double wr[n];
+double sum=0;
+double wrsum=0;
+head = list;
+//setup an array with probability of each particles
+//not necessary, but since I am new to C, this works the best for me
+for (int i=0; i < n; i++){
+probList[0][i] = list->x;
+probList[1][i] = list->y;
+probList[2][i] = list->theta;
+probList[3][i]= list->prob;
+//printf("%f\n", list->prob);
+sum = sum + list->prob;
+list = list->next;
+}
+//printf("==================================\n");
+//normalize the probability
+for (int i=0; i < n; i++){
+probList[3][i] = n*probList[3][i]/sum;
+wn[i] = floor(probList[3][i]);
+wr[i] = probList[3][i] - wn[i];
+wrsum = wrsum + wr[i];
+}
+for (int i=0; i < n; i++){
+wr[i] = wr[i]/wrsum;
+}
+//resample and create an array to store the index of the choosen particle
+int k=0;
+int newProbList[n];
+for (int i=0; i<n;i++ ){
+//printf("%i\n", i);
+for (int j=0; j<wn[i]; j++){
+newProbList[k] = i;
+//printf("%i\n", i);
+//printf("%i\n", newProbList[k]);
+k = k+1;
+}
+}
+//printf("================end of i==================\n");
+double cs[n];
+cs[0] = wr[0];
+for (int i=1; i<n; i++){
+cs[i] = cs[i-1] + wr[i];
+//printf("%f | + %f\n", cs[i],wr[i] );
+}
+for (int j=k; j<n; j++){
+int RandIndex = rand() % n;
+while(cs[RandIndex] == 0){
+RandIndex = rand() % n;
+}
+//printf("%i\n", RandIndex);
+newProbList[j] = RandIndex;
+//printf("%i\n", RandIndex);
+//printf("successful\n");
+//printf("=============================\n");
+//printf("%i\n", j);
+}
+//printf("===========end of randomness==================\n");
+for (int i=0; i<n; i++){
+//printf("%i\n", newProbList[0]);
+}
+//create a new linked list with randomly choosen particles
+//head=list
+for (int i=0; i<n;i++){
+struct particle *nlist;
+nlist = (struct particle*)malloc(sizeof(struct particle));
+nlist->x = rand() %sx; //probList[0][newProbList[i]];
+nlist->y = rand() %sy;// probList[1][newProbList[i]];
+nlist->theta = rand() % 12;//probList[2][newProbList[i]];
+nlist->prob = probList[3][newProbList[i]];
+//exit(0);
+nlist->next= list;
+list=nlist;
+//printf("successful\n");
+}
+//list = (struct particle*)malloc(sizeof(struct particle));
+//printf("===========end of new list==================\n");
+//exit(1);
+list= head;
+
    
-   int n = n_particles;
-   struct particle *head;
-   double probList[4][n];
-   double wn[n];
-   double wr[n];
-   double sum=0;
-   double wrsum=0;
 
-   head = list;
-
-   //setup an array with probability of each particles
-   //not necessary, but since I am new to C, this works the best for me
-   for (int i=0; i < n; i++){
-	   probList[0][i] = list->x;
-	   probList[1][i] = list->y;
-	   probList[2][i] = list->theta;
-	   probList[3][i]= list->prob;
-	   //printf("%f\n", list->prob);
-	   sum = sum + list->prob;
-	   list = list->next;
-   }
-   //printf("==================================\n");
-
-   //normalize the probability
-   for (int i=0; i < n; i++){
-	   probList[3][i] = n*probList[3][i]/sum;
-	   wn[i] = floor(probList[3][i]);
-	   wr[i] = probList[3][i] - wn[i];
-	   wrsum = wrsum + wr[i];
-
-   }
-
-   for (int i=0; i < n; i++){
-	   wr[i] = wr[i]/wrsum;
-   }
-
-
-   //resample and create an array to store the index of the choosen particle
-   int k=0;
-   int newProbList[n];
-
-   for (int i=0; i<n;i++ ){
-	   //printf("%i\n", i);
-	   for (int j=0; j<wn[i]; j++){
-		   newProbList[k] = i;
-		   //printf("%i\n", i);
-		   //printf("%i\n", newProbList[k]);
-		   k = k+1;
-	   }
-   }
-   //printf("================end of i==================\n");
-   double cs[n];
-
-   cs[0] = wr[0];
-   for (int i=1; i<n; i++){
-	   cs[i] = cs[i-1] + wr[i];
-	   //printf("%f      |      + %f\n", cs[i],wr[i] );
-   }
-
-   for (int j=k; j<n; j++){
-	   int RandIndex = rand() % n;
-
-	  while(cs[RandIndex] == 0){
-	   RandIndex = rand() % n;
-	  }
-	  //printf("%i\n", RandIndex);
-	   newProbList[j] = RandIndex;
-	   //printf("%i\n", RandIndex);
-	   //printf("successful\n");
-	   //printf("=============================\n");
-	   //printf("%i\n", j);
-   }
-   //printf("===========end of randomness==================\n");
-
-   for (int i=0; i<n; i++){
-	   //printf("%i\n", newProbList[0]);
-   }
-
-   //create a new linked list with randomly choosen particles
-
-   //head=list
-
-   for (int i=0; i<n;i++){
-	   struct particle *nlist;
-	   nlist = (struct particle*)malloc(sizeof(struct particle));
-
-	   nlist->x = probList[0][newProbList[i]];
-	   nlist->y = probList[1][newProbList[i]];
-	   nlist->theta = probList[2][newProbList[i]];
-	   nlist->prob = probList[3][newProbList[i]];
-	   //exit(0);
-
-	   nlist->next= list;
-	   list=nlist;
-	   //printf("successful\n");
-   }
-   //list = (struct particle*)malloc(sizeof(struct particle));
-   //printf("===========end of new list==================\n");
-   //exit(1);
-   list= head;
-
-
-
-
+    
+   
    /*******************************************************************
    // TO DO: Complete and test Step 4
    //        You should see most particles disappear except for
